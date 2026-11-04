@@ -1,0 +1,30 @@
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    env_file:
+      - .env
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - NODE_ENV=production
+      - WEBHOOK_URL=http://localhost:5678/
+      - GENERIC_TIMEZONE=UTC
+      - N8N_LOG_FILE=/home/node/.n8n-logs/notifications.log
+      - N8N_ERROR_LOG_FILE=/home/node/.n8n-logs/errors.log
+      # Code nodes call require("crypto") and require("fs") for HMAC + mock logs.
+      # n8n's task runner blocks both unless they are allowlisted.
+      - NODE_FUNCTION_ALLOW_BUILTIN=crypto,fs
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n/logs:/home/node/.n8n-logs
+    # Allow reaching host Convex / local services when needed
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  n8n_data:
