@@ -1,0 +1,62 @@
+{
+  "name": "LendLoop Error Handler",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "e96460c0-1ab0-4781-85b1-987b21ccc729",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst path = $env.N8N_ERROR_LOG_FILE || '/home/node/.n8n-logs/errors.log';\nconst item = $input.first().json;\nconst line = JSON.stringify({\n  at: new Date().toISOString(),\n  workflow: item.workflow?.name || item.workflow?.id || 'unknown',\n  executionId: item.execution?.id || null,\n  node: item.node?.name || null,\n  message: item.execution?.error?.message || item.error?.message || 'Unknown error',\n  stack: item.execution?.error?.stack || null,\n}) + '\\n';\nfs.appendFileSync(path, line);\nreturn [{ json: { logged: true, path } }];"
+      },
+      "id": "c0bd5c25-6160-45ca-a43b-a13a53f71bc1",
+      "name": "Append Error Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Append Error Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "f8aa25dd-2a62-4cc3-903e-232c81471eed",
+  "meta": {
+    "instanceId": "fb4a66db3862577e70d233ceb466f93da7385f874422f9489749590b74bfa5fd"
+  },
+  "nodeGroups": [],
+  "id": "OZDdBoPcURpH2Cwm",
+  "tags": [
+    {
+      "updatedAt": "2026-11-04T01:46:22.059Z",
+      "createdAt": "2026-11-04T01:46:22.059Z",
+      "id": "YPAFJncs04oYtaAT",
+      "name": "lendloop"
+    }
+  ]
+}
