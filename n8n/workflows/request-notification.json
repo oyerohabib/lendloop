@@ -1,0 +1,120 @@
+{
+  "name": "LendLoop Request Notification",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lendloop-request",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "4ee78c4b-f916-4b99-8ceb-85b5f01d9000",
+      "name": "Request Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "lendloop-request"
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst secret = $env.N8N_WEBHOOK_SECRET;\nif (!secret) {\n  throw new Error('N8N_WEBHOOK_SECRET is not set');\n}\n\nconst item = $input.first();\nconst headers = item.json.headers || {};\nconst signatureHeader = headers['x-lendloop-signature'] || headers['X-LendLoop-Signature'] || '';\nconst provided = String(signatureHeader).replace(/^sha256=/i, '').trim();\n\n// n8n may expose rawBody; fall back to re-serializing the body field\nlet rawBody = item.json.rawBody;\nif (!rawBody) {\n  const body = item.json.body ?? item.json;\n  // Prefer the nested body when webhook wraps the payload\n  const payload = item.json.body && typeof item.json.body === 'object' ? item.json.body : {\n    eventId: item.json.eventId,\n    loanId: item.json.loanId,\n    status: item.json.status,\n    previousStatus: item.json.previousStatus,\n    toolName: item.json.toolName,\n    recipientEmail: item.json.recipientEmail,\n    role: item.json.role,\n    occurredAt: item.json.occurredAt,\n  };\n  rawBody = typeof body === 'string' ? body : JSON.stringify(payload);\n}\n\nconst expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');\nconst a = Buffer.from(expected, 'utf8');\nconst b = Buffer.from(provided, 'utf8');\nif (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {\n  throw new Error('Invalid HMAC signature');\n}\n\nconst payload = typeof item.json.body === 'object' && item.json.body\n  ? item.json.body\n  : item.json;\n\nreturn [{\n  json: {\n    eventId: payload.eventId,\n    loanId: payload.loanId,\n    status: payload.status,\n    previousStatus: payload.previousStatus ?? null,\n    toolName: payload.toolName,\n    recipientEmail: payload.recipientEmail,\n    role: payload.role,\n    occurredAt: payload.occurredAt,\n  },\n}];"
+      },
+      "id": "288c3010-ad31-45ef-84cf-45deca232f32",
+      "name": "Verify HMAC",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// @ts-nocheck\nconst fs = require('fs');\nconst path = $env.N8N_LOG_FILE || '/home/node/.n8n-logs/notifications.log';\nconst payload = $input.first().json;\nconst line = JSON.stringify({\n  channel: 'mock',\n  kind: 'request_notification',\n  at: new Date().toISOString(),\n  to: payload.recipientEmail,\n  role: payload.role,\n  loanId: payload.loanId,\n  status: payload.status,\n  toolName: payload.toolName,\n  eventId: payload.eventId,\n}) + '\\n';\nfs.appendFileSync(path, line);\nreturn [{ json: { ...payload, logged: true, path } }];"
+      },
+      "id": "8f16e87a-4300-4552-a451-0c88fb3843c1",
+      "name": "Mock Notify Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        528,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true, logged: true, eventId: $json.eventId } }}",
+        "options": {}
+      },
+      "id": "f2ace539-cf48-4e4f-9e7c-8a2a5df4d5c6",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        784,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Request Webhook": {
+      "main": [
+        [
+          {
+            "node": "Verify HMAC",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify HMAC": {
+      "main": [
+        [
+          {
+            "node": "Mock Notify Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mock Notify Log": {
+      "main": [
+        [
+          {
+            "node": "Respond OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "bbb3913d-a481-4c4e-a34f-1b859d9f782f",
+  "meta": {
+    "instanceId": "fb4a66db3862577e70d233ceb466f93da7385f874422f9489749590b74bfa5fd"
+  },
+  "nodeGroups": [],
+  "id": "ldorJimvpeKsUybk",
+  "tags": [
+    {
+      "updatedAt": "2026-11-04T01:46:22.059Z",
+      "createdAt": "2026-11-04T01:46:22.059Z",
+      "id": "YPAFJncs04oYtaAT",
+      "name": "lendloop"
+    }
+  ]
+}
