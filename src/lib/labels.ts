@@ -19,6 +19,19 @@ export const LOAN_STATUS_LABELS: Record<string, string> = {
   returned: "Returned",
 };
 
+export function loanStatusBadgeClass(status: string) {
+  switch (status) {
+    case "approved":
+      return "badge badge--ok";
+    case "pending":
+      return "badge badge--busy";
+    case "declined":
+      return "badge badge--warn";
+    default:
+      return "badge badge--neutral";
+  }
+}
+
 export function relativeTime(ts: number): string {
   const seconds = Math.round((Date.now() - ts) / 1000);
   if (seconds < 60) return "just now";

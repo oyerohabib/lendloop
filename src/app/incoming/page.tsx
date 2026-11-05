@@ -3,7 +3,7 @@
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import AutomationActivity from "@/components/AutomationActivity";
-import { LOAN_STATUS_LABELS } from "@/lib/labels";
+import { LOAN_STATUS_LABELS, loanStatusBadgeClass } from "@/lib/labels";
 
 export default function IncomingPage() {
   const { isAuthenticated, isLoading } = useConvexAuth();
@@ -31,14 +31,16 @@ export default function IncomingPage() {
         <div className="panel">
           {incoming.map((loan) => (
             <div key={loan._id} className="loan-row">
-              <div className="row-actions" style={{ justifyContent: "space-between" }}>
-                <div>
+              <div>
+                <div className="card-heading">
                   <strong>{loan.toolName}</strong>
-                  <p className="muted small" style={{ margin: 0 }}>
-                    {loan.borrowerName} · {loan.startDate} → {loan.endDate}
-                  </p>
+                  <span className={loanStatusBadgeClass(loan.status)}>
+                    {LOAN_STATUS_LABELS[loan.status]}
+                  </span>
                 </div>
-                <span className="badge">{LOAN_STATUS_LABELS[loan.status]}</span>
+                <p className="muted small" style={{ margin: "0.35rem 0 0" }}>
+                  {loan.borrowerName} · {loan.startDate} → {loan.endDate}
+                </p>
               </div>
 
               <div className="row-actions">
