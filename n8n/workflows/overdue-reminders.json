@@ -1,0 +1,287 @@
+{
+  "name": "LendLoop Overdue Reminders",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "id": "bd26569e-40d4-42d1-90b2-da4d621f2232",
+      "name": "Daily 09:00 UTC",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst secret = $env.N8N_WEBHOOK_SECRET;\nconst siteUrl = ($env.CONVEX_SITE_URL || '').replace(/\\/$/, '');\nif (!secret) throw new Error('N8N_WEBHOOK_SECRET is not set');\nif (!siteUrl) throw new Error('CONVEX_SITE_URL is not set');\n\nconst timestamp = String(Date.now());\nconst body = '';\nconst signature = crypto.createHmac('sha256', secret).update(`${timestamp}.${body}`).digest('hex');\n\nreturn [{\n  json: {\n    url: `${siteUrl}/overdue-loans`,\n    timestamp,\n    signature,\n  },\n}];"
+      },
+      "id": "98184900-c826-4a68-a18f-d7a762e87283",
+      "name": "Sign GET",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-LendLoop-Timestamp",
+              "value": "={{ $json.timestamp }}"
+            },
+            {
+              "name": "X-LendLoop-Signature",
+              "value": "=sha256={{ $json.signature }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "8fc6d531-d74f-4467-8b48-831e67b638df",
+      "name": "Fetch Overdue Loans",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        48
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst loans = Array.isArray(data.loans) ? data.loans : [];\nconst today = data.today || new Date().toISOString().slice(0, 10);\nif (!loans.length) {\n  return [{ json: { empty: true, today } }];\n}\nreturn loans.map((loan) => ({\n  json: {\n    loanId: loan.loanId,\n    toolName: loan.toolName,\n    borrowerEmail: loan.borrowerEmail,\n    endDate: loan.endDate,\n    today,\n    idempotencyKey: `overdue:${loan.loanId}:${today}`,\n  },\n}));"
+      },
+      "id": "5cbe5899-b5b2-4cac-8843-fd9b1eae572d",
+      "name": "Split Loans",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ !$json.empty }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "2fa804aa-9d35-4988-ace2-66d4daa875b7",
+      "name": "Has Loans?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        960,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst path = $env.N8N_LOG_FILE || '/home/node/.n8n-logs/notifications.log';\nconst payload = $input.first().json;\nconst line = JSON.stringify({\n  channel: 'mock',\n  kind: 'overdue_reminder',\n  at: new Date().toISOString(),\n  to: payload.borrowerEmail,\n  loanId: payload.loanId,\n  toolName: payload.toolName,\n  endDate: payload.endDate,\n  idempotencyKey: payload.idempotencyKey,\n}) + '\\n';\nfs.appendFileSync(path, line);\nreturn [{ json: { ...payload, sentAt: Date.now(), summary: `Reminder sent for overdue loan of ${payload.toolName}` } }];"
+      },
+      "id": "b63561b5-9c1c-44f3-a1dd-d95f2e464a0f",
+      "name": "Mock Reminder Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst secret = $env.N8N_WEBHOOK_SECRET;\nconst siteUrl = ($env.CONVEX_SITE_URL || '').replace(/\\/$/, '');\nconst payload = $input.first().json;\nconst bodyObj = {\n  loanId: payload.loanId,\n  idempotencyKey: payload.idempotencyKey,\n  sentAt: payload.sentAt,\n  summary: payload.summary,\n  status: 'sent',\n};\nconst body = JSON.stringify(bodyObj);\nconst timestamp = String(Date.now());\nconst signature = crypto.createHmac('sha256', secret).update(`${timestamp}.${body}`).digest('hex');\nreturn [{\n  json: {\n    url: `${siteUrl}/reminders/ack`,\n    timestamp,\n    signature,\n    body,\n    bodyObj,\n  },\n}];"
+      },
+      "id": "4d5595de-ea6d-4326-a226-9d446e2c3361",
+      "name": "Sign ACK",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-LendLoop-Timestamp",
+              "value": "={{ $json.timestamp }}"
+            },
+            {
+              "name": "X-LendLoop-Signature",
+              "value": "=sha256={{ $json.signature }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.body }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "b431883b-d220-4ad3-940f-ff87b75b562e",
+      "name": "Ack Reminder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1680,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { ok: true, message: 'No overdue loans today' } }];"
+      },
+      "id": "90108783-88ab-4bf2-b080-159198bee4f6",
+      "name": "No Overdue",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        208
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Daily 09:00 UTC": {
+      "main": [
+        [
+          {
+            "node": "Sign GET",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign GET": {
+      "main": [
+        [
+          {
+            "node": "Fetch Overdue Loans",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Overdue Loans": {
+      "main": [
+        [
+          {
+            "node": "Split Loans",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Loans": {
+      "main": [
+        [
+          {
+            "node": "Has Loans?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Loans?": {
+      "main": [
+        [
+          {
+            "node": "Mock Reminder Log",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Overdue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mock Reminder Log": {
+      "main": [
+        [
+          {
+            "node": "Sign ACK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign ACK": {
+      "main": [
+        [
+          {
+            "node": "Ack Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "807049eb-c3d8-4df6-a6cb-3191555929b2",
+  "meta": {
+    "instanceId": "fb4a66db3862577e70d233ceb466f93da7385f874422f9489749590b74bfa5fd"
+  },
+  "nodeGroups": [],
+  "id": "cU7r5SYVxrCFMW1P",
+  "tags": [
+    {
+      "updatedAt": "2026-11-04T01:46:22.059Z",
+      "createdAt": "2026-11-04T01:46:22.059Z",
+      "id": "YPAFJncs04oYtaAT",
+      "name": "lendloop"
+    }
+  ]
+}
