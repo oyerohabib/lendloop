@@ -26,8 +26,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${display.variable} ${body.variable} h-full`}>
-      <body className="min-h-full flex flex-col antialiased">
+    <html lang="en" className={`${display.variable} ${body.variable}`}>
+      <body className="flex min-h-dvh flex-col antialiased">
         <ClerkProvider>
           <Suspense fallback={<div className="page muted">Loading…</div>}>
             <ConvexClientProvider>
