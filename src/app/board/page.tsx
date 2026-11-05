@@ -5,6 +5,18 @@ import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import CategoryFilter from "@/components/CategoryFilter";
+
+function openDatePicker(input: HTMLInputElement) {
+  // Chrome and Safari open from the stretched calendar control. Calling
+  // showPicker as well toggles that control closed.
+  if (/AppleWebKit\//.test(navigator.userAgent)) return;
+  if (typeof input.showPicker !== "function") return;
+  try {
+    input.showPicker();
+  } catch {
+    // The picker is already open, or this browser blocked it.
+  }
+}
 import {
   CATEGORY_LABELS,
   CONDITION_LABELS,
@@ -14,6 +26,7 @@ export default function BoardPage() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const [category, setCategory] = useState("all");
   const [requestingId, setRequestingId] = useState<Id<"tools"> | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +58,7 @@ export default function BoardPage() {
     e.preventDefault();
     if (!requestingId) return;
     setError(null);
+    setSubmitting(true);
     try {
       await createRequest({
         toolId: requestingId,
@@ -56,6 +70,8 @@ export default function BoardPage() {
       setEndDate("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Request failed");
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -75,23 +91,19 @@ export default function BoardPage() {
       ) : tools.length === 0 ? (
         <p className="empty">No tools in this category yet.</p>
       ) : (
-        <div className="stack">
+        <div className="card-grid">
           {tools.map((tool) => {
             const isMine = me?._id === tool.ownerId;
+            const request = tool.myRequest;
+            const showRequestForm =
+              !isMine &&
+              tool.availability === "available" &&
+              request?.status !== "pending" &&
+              request?.status !== "approved";
             return (
               <article key={tool._id} className="panel">
-                <div className="row-actions" style={{ justifyContent: "space-between" }}>
-                  <div>
-                    <h2 style={{ margin: "0 0 0.25rem", fontSize: "1.2rem" }}>
-                      {tool.name}
-                    </h2>
-                    <p className="muted small" style={{ margin: 0 }}>
-                      {CATEGORY_LABELS[tool.category]} ·{" "}
-                      {CONDITION_LABELS[tool.condition]} ·{" "}
-                      {tool.ownerName}
-                      {tool.trustedLender ? " · Trusted Lender" : ""}
-                    </p>
-                  </div>
+                <div className="card-heading">
+                  <h2>{tool.name}</h2>
                   <span
                     className={
                       tool.availability === "available"
@@ -102,32 +114,63 @@ export default function BoardPage() {
                     {tool.availability === "available" ? "Available" : "On loan"}
                   </span>
                 </div>
-                <p style={{ margin: "0.75rem 0" }}>{tool.description}</p>
-                {!isMine && tool.availability === "available" ? (
+                <p className="muted small" style={{ margin: "0.35rem 0 0" }}>
+                  {CATEGORY_LABELS[tool.category]} ·{" "}
+                  {CONDITION_LABELS[tool.condition]} · {tool.ownerName}
+                  {tool.trustedLender ? " · Trusted Lender" : ""}
+                </p>
+                <p className="card-copy">{tool.description}</p>
+                <div className="card-foot">
+                {!isMine && request?.status === "pending" ? (
+                  <>
+                    <button type="button" className="btn btn--primary" disabled>
+                      Request pending
+                    </button>
+                    <p className="muted small" style={{ margin: 0 }}>
+                      {request.startDate} → {request.endDate}
+                    </p>
+                  </>
+                ) : null}
+                {!isMine && request?.status === "approved" ? (
+                  <p className="muted small" style={{ margin: 0 }}>
+                    Approved · {request.startDate} → {request.endDate}
+                  </p>
+                ) : null}
+                {showRequestForm ? (
                   requestingId === tool._id ? (
                     <form className="form-grid" onSubmit={onSubmit}>
-                      <label>
-                        Start date
-                        <input
-                          type="date"
-                          required
-                          value={startDate}
-                          onChange={(e) => setStartDate(e.target.value)}
-                        />
-                      </label>
-                      <label>
-                        End date
-                        <input
-                          type="date"
-                          required
-                          value={endDate}
-                          onChange={(e) => setEndDate(e.target.value)}
-                        />
-                      </label>
+                      <div className="date-row">
+                        <label htmlFor={`start-${tool._id}`}>
+                          Start date
+                          <input
+                            id={`start-${tool._id}`}
+                            type="date"
+                            required
+                            value={startDate}
+                            onClick={(e) => openDatePicker(e.currentTarget)}
+                            onChange={(e) => setStartDate(e.target.value)}
+                          />
+                        </label>
+                        <label htmlFor={`end-${tool._id}`}>
+                          End date
+                          <input
+                            id={`end-${tool._id}`}
+                            type="date"
+                            required
+                            value={endDate}
+                            onClick={(e) => openDatePicker(e.currentTarget)}
+                            onChange={(e) => setEndDate(e.target.value)}
+                          />
+                        </label>
+                      </div>
                       {error ? <p className="badge badge--warn">{error}</p> : null}
                       <div className="row-actions">
-                        <button type="submit" className="btn btn--primary">
-                          Send request
+                        <button
+                          type="submit"
+                          className="btn btn--primary"
+                          disabled={submitting}
+                        >
+                          {submitting ? "Sending request…" : "Send request"}
                         </button>
                         <button
                           type="button"
@@ -141,16 +184,22 @@ export default function BoardPage() {
                   ) : (
                     <button
                       type="button"
-                      className="btn btn--ghost"
-                      onClick={() => setRequestingId(tool._id)}
+                      className="btn btn--primary"
+                      onClick={() => {
+                        setError(null);
+                        setRequestingId(tool._id);
+                      }}
                     >
                       Request to borrow
                     </button>
                   )
                 ) : null}
                 {isMine ? (
-                  <p className="muted small">This is your listing.</p>
+                  <p className="muted small" style={{ margin: 0 }}>
+                    This is your listing.
+                  </p>
                 ) : null}
+                </div>
               </article>
             );
           })}

@@ -53,7 +53,7 @@ export const listBoard = query({
     category: v.optional(categoryValidator),
   },
   handler: async (ctx, args) => {
-    await requireUser(ctx);
+    const user = await requireUser(ctx);
     const tools = args.category
       ? await ctx.db
           .query("tools")
@@ -61,10 +61,23 @@ export const listBoard = query({
           .take(200)
       : await ctx.db.query("tools").take(200);
 
+    const myLoans = await ctx.db
+      .query("loans")
+      .withIndex("by_borrower", (q) => q.eq("borrowerId", user._id))
+      .take(100);
+    const latestByTool = new Map<string, (typeof myLoans)[number]>();
+    for (const loan of myLoans) {
+      const current = latestByTool.get(loan.toolId);
+      if (!current || loan.createdAt > current.createdAt) {
+        latestByTool.set(loan.toolId, loan);
+      }
+    }
+
     const rows = [];
     for (const tool of tools) {
       const owner = await ctx.db.get(tool.ownerId);
       const availability = await toolAvailability(ctx, tool._id);
+      const mine = latestByTool.get(tool._id);
       rows.push({
         _id: tool._id,
         name: tool.name,
@@ -72,6 +85,13 @@ export const listBoard = query({
         condition: tool.condition,
         description: tool.description,
         availability,
+        myRequest: mine
+          ? {
+              status: mine.status,
+              startDate: mine.startDate,
+              endDate: mine.endDate,
+            }
+          : null,
         ownerName: owner?.name ?? "Neighbor",
         trustedLender: owner?.trustedLender ?? false,
         ownerId: tool.ownerId,
