@@ -59,21 +59,23 @@ export default function MyListingsPage() {
 
       <div className="split">
         <form className="panel form-grid" onSubmit={onSubmit}>
-          <h2 style={{ margin: 0, fontSize: "1.1rem" }}>
+          <h2 className="panel-heading">
             {editingId ? "Edit tool" : "List a tool"}
           </h2>
-          <label>
+          <label htmlFor="tool-name">
             Name
             <input
+              id="tool-name"
               required
               maxLength={80}
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
           </label>
-          <label>
+          <label htmlFor="tool-category">
             Category
             <select
+              id="tool-category"
               value={form.category}
               onChange={(e) =>
                 setForm({ ...form, category: e.target.value as Category })
@@ -86,9 +88,10 @@ export default function MyListingsPage() {
               ))}
             </select>
           </label>
-          <label>
+          <label htmlFor="tool-condition">
             Condition
             <select
+              id="tool-condition"
               value={form.condition}
               onChange={(e) =>
                 setForm({ ...form, condition: e.target.value as Condition })
@@ -101,9 +104,10 @@ export default function MyListingsPage() {
               ))}
             </select>
           </label>
-          <label>
+          <label htmlFor="tool-description">
             Short description
             <textarea
+              id="tool-description"
               required
               maxLength={500}
               value={form.description}
@@ -132,7 +136,10 @@ export default function MyListingsPage() {
           </div>
         </form>
 
-        <div className="stack">
+        <section className="stack" aria-labelledby="your-listings">
+          <h2 id="your-listings" className="panel-heading">
+            Your listings
+          </h2>
           {isLoading || !isAuthenticated || !me ? (
             <p className="muted">Connecting to your account…</p>
           ) : !tools ? (
@@ -177,7 +184,7 @@ export default function MyListingsPage() {
               </article>
             ))
           )}
-        </div>
+        </section>
       </div>
     </div>
   );
