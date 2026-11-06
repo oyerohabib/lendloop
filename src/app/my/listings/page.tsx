@@ -192,14 +192,27 @@ export default function MyListingsPage() {
             <p className="empty">You haven’t listed any tools yet.</p>
           ) : (
             tools.map((tool) => (
-              <article key={tool._id} className="panel">
-                <h3 style={{ margin: "0 0 0.25rem" }}>{tool.name}</h3>
-                <p className="muted small" style={{ margin: 0 }}>
-                  {CATEGORY_LABELS[tool.category]} ·{" "}
-                  {CONDITION_LABELS[tool.condition]} · {tool.availability}
-                </p>
-                <p>{tool.description}</p>
-                <div className="row-actions">
+              <article key={tool._id} className="panel listing-card">
+                <div className="listing-card__body">
+                  <div className="card-heading">
+                    <h3>{tool.name}</h3>
+                    <span
+                      className={
+                        tool.availability === "available"
+                          ? "badge badge--ok"
+                          : "badge badge--busy"
+                      }
+                    >
+                      {tool.availability === "available" ? "Available" : "On loan"}
+                    </span>
+                  </div>
+                  <p className="listing-card__meta">
+                    {CATEGORY_LABELS[tool.category]} ·{" "}
+                    {CONDITION_LABELS[tool.condition]}
+                  </p>
+                  <p className="listing-card__copy">{tool.description}</p>
+                </div>
+                <div className="row-actions listing-card__actions">
                   <button
                     type="button"
                     className="btn btn--ghost"
