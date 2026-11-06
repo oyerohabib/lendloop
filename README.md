@@ -1,4 +1,4 @@
-# LendLoop
+<h1><img src="public/mark.svg" alt="" width="32" height="32" align="absmiddle" />&nbsp;&nbsp;LendLoop</h1>
 
 Neighborhood tool-lending board: neighbors list tools, request borrows, and get automated notifications/reminders via **n8n**.
 
