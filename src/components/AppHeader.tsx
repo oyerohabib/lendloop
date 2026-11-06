@@ -56,6 +56,7 @@ export default function AppHeader() {
     <header className="site-header">
       <div className="site-header__inner">
         <Link href="/" className="brand">
+          <img className="brand__mark" src="/mark.svg" alt="" width={28} height={28} />
           LendLoop
         </Link>
         <Show when="signed-in">
