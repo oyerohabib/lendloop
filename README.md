@@ -6,6 +6,14 @@ Neighborhood tool-lending board: neighbors list tools, request borrows, and get 
 
 > Borrow what you need. Lend what you don’t.
 
+## Walkthrough
+
+[![LendLoop homepage. Click to play the walkthrough.](docs/walkthrough.png)](https://www.loom.com/share/2fe2495ab6534e6981d9774b8f2e3907)
+
+**Click the image to play the demo** — listing a tool, requesting a borrow, and the notification that follows.
+
+https://www.loom.com/share/2fe2495ab6534e6981d9774b8f2e3907
+
 ## Architecture
 
 ```
