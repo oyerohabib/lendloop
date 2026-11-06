@@ -502,6 +502,29 @@ a {
   cursor: not-allowed;
 }
 
+.btn[aria-busy="true"]::before {
+  content: "";
+  width: 0.8rem;
+  height: 0.8rem;
+  margin-right: 0.55rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: btn-spin 0.7s linear infinite;
+}
+
+@keyframes btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn[aria-busy="true"]::before {
+    animation: none;
+  }
+}
+
 .panel {
   background: var(--surface);
   border: 1px solid var(--line);

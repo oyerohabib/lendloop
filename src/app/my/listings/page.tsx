@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { flushSync } from "react-dom";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
@@ -32,21 +33,58 @@ export default function MyListingsPage() {
 
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<Id<"tools"> | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<Id<"tools"> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<{
+    toolId: Id<"tools">;
+    message: string;
+  } | null>(null);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    setError(null);
+    if (saving || deletingId) return;
+    const started = Date.now();
+    flushSync(() => {
+      setError(null);
+      setSaving(true);
+    });
     try {
       if (editingId) {
         await updateTool({ toolId: editingId, ...form });
       } else {
         await createTool(form);
       }
+      const remaining = 450 - (Date.now() - started);
+      if (remaining > 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, remaining));
+      }
       setForm(emptyForm);
       setEditingId(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function onDelete(toolId: Id<"tools">) {
+    if (saving || deletingId) return;
+    setDeleteError(null);
+    setDeletingId(toolId);
+    try {
+      await removeTool({ toolId });
+      if (editingId === toolId) {
+        setEditingId(null);
+        setForm(emptyForm);
+      }
+    } catch (err) {
+      setDeleteError({
+        toolId,
+        message: err instanceof Error ? err.message : "Delete failed",
+      });
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -118,13 +156,19 @@ export default function MyListingsPage() {
           </label>
           {error ? <p className="badge badge--warn">{error}</p> : null}
           <div className="row-actions">
-            <button type="submit" className="btn btn--primary">
-              {editingId ? "Save changes" : "List tool"}
+            <button
+              type="submit"
+              className="btn btn--primary"
+              disabled={saving || deletingId !== null}
+              aria-busy={saving}
+            >
+              {saving ? "Saving…" : editingId ? "Save changes" : "List tool"}
             </button>
             {editingId ? (
               <button
                 type="button"
                 className="btn btn--ghost"
+                disabled={saving}
                 onClick={() => {
                   setEditingId(null);
                   setForm(emptyForm);
@@ -159,6 +203,7 @@ export default function MyListingsPage() {
                   <button
                     type="button"
                     className="btn btn--ghost"
+                    disabled={saving || deletingId === tool._id}
                     onClick={() => {
                       setEditingId(tool._id);
                       setForm({
@@ -174,13 +219,15 @@ export default function MyListingsPage() {
                   <button
                     type="button"
                     className="btn btn--danger"
-                    onClick={() => {
-                      void removeTool({ toolId: tool._id });
-                    }}
+                    disabled={saving || deletingId !== null}
+                    onClick={() => void onDelete(tool._id)}
                   >
-                    Delete
+                    {deletingId === tool._id ? "Deleting…" : "Delete"}
                   </button>
                 </div>
+                {deleteError?.toolId === tool._id ? (
+                  <p className="badge badge--warn">{deleteError.message}</p>
+                ) : null}
               </article>
             ))
           )}

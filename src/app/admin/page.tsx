@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { Id } from "../../../convex/_generated/dataModel";
 import { LOAN_STATUS_LABELS, CATEGORY_LABELS } from "@/lib/labels";
 
 export default function AdminPage() {
@@ -24,6 +26,50 @@ export default function AdminPage() {
   );
   const setTrusted = useMutation(api.users.setTrustedLender);
   const adminRemove = useMutation(api.tools.adminRemove);
+  const [busy, setBusy] = useState<
+    | { kind: "trusted"; userId: Id<"users"> }
+    | { kind: "remove"; toolId: Id<"tools"> }
+    | null
+  >(null);
+  const [error, setError] = useState<
+    | { kind: "trusted"; userId: Id<"users">; message: string }
+    | { kind: "remove"; toolId: Id<"tools">; message: string }
+    | null
+  >(null);
+
+  async function onToggleTrusted(userId: Id<"users">, trusted: boolean) {
+    if (busy) return;
+    setError(null);
+    setBusy({ kind: "trusted", userId });
+    try {
+      await setTrusted({ userId, trusted });
+    } catch (err) {
+      setError({
+        kind: "trusted",
+        userId,
+        message: err instanceof Error ? err.message : "Update failed",
+      });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function onRemove(toolId: Id<"tools">) {
+    if (busy) return;
+    setError(null);
+    setBusy({ kind: "remove", toolId });
+    try {
+      await adminRemove({ toolId });
+    } catch (err) {
+      setError({
+        kind: "remove",
+        toolId,
+        message: err instanceof Error ? err.message : "Remove failed",
+      });
+    } finally {
+      setBusy(null);
+    }
+  }
 
   if (isLoading || !isAuthenticated || me === undefined || me === null) {
     return (
@@ -69,16 +115,21 @@ export default function AdminPage() {
                 <button
                   type="button"
                   className="btn btn--ghost"
+                  disabled={busy !== null}
                   onClick={() =>
-                    void setTrusted({
-                      userId: user._id,
-                      trusted: !user.trustedLender,
-                    })
+                    void onToggleTrusted(user._id, !user.trustedLender)
                   }
                 >
-                  {user.trustedLender ? "Remove trusted" : "Mark trusted"}
+                  {busy?.kind === "trusted" && busy.userId === user._id
+                    ? "Updating…"
+                    : user.trustedLender
+                      ? "Remove trusted"
+                      : "Mark trusted"}
                 </button>
               </div>
+              {error?.kind === "trusted" && error.userId === user._id ? (
+                <p className="badge badge--warn">{error.message}</p>
+              ) : null}
             </div>
           ))
         )}
@@ -103,11 +154,17 @@ export default function AdminPage() {
                 <button
                   type="button"
                   className="btn btn--danger"
-                  onClick={() => void adminRemove({ toolId: tool._id })}
+                  disabled={busy !== null}
+                  onClick={() => void onRemove(tool._id)}
                 >
-                  Remove
+                  {busy?.kind === "remove" && busy.toolId === tool._id
+                    ? "Removing…"
+                    : "Remove"}
                 </button>
               </div>
+              {error?.kind === "remove" && error.toolId === tool._id ? (
+                <p className="badge badge--warn">{error.message}</p>
+              ) : null}
             </div>
           ))
         )}

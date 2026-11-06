@@ -175,6 +175,7 @@ export default function BoardPage() {
                         <button
                           type="button"
                           className="btn btn--ghost"
+                          disabled={submitting}
                           onClick={() => setRequestingId(null)}
                         >
                           Cancel
