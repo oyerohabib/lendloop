@@ -35,7 +35,7 @@ async function toolAvailability(
 export const listPublicAvailable = query({
   args: {},
   handler: async (ctx) => {
-    const tools = await ctx.db.query("tools").take(200);
+    const tools = await ctx.db.query("tools").order("desc").take(200);
     const result: { name: string; category: string }[] = [];
     for (const tool of tools) {
       const status = await toolAvailability(ctx, tool._id);
@@ -58,8 +58,9 @@ export const listBoard = query({
       ? await ctx.db
           .query("tools")
           .withIndex("by_category", (q) => q.eq("category", args.category!))
+          .order("desc")
           .take(200)
-      : await ctx.db.query("tools").take(200);
+      : await ctx.db.query("tools").order("desc").take(200);
 
     const myLoans = await ctx.db
       .query("loans")
@@ -108,6 +109,7 @@ export const listMine = query({
     const tools = await ctx.db
       .query("tools")
       .withIndex("by_owner", (q) => q.eq("ownerId", user._id))
+      .order("desc")
       .take(100);
     const rows = [];
     for (const tool of tools) {

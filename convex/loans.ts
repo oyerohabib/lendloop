@@ -20,6 +20,7 @@ async function enrichLoan(ctx: QueryCtx, loan: Doc<"loans">) {
   const events = await ctx.db
     .query("automationEvents")
     .withIndex("by_loan", (q) => q.eq("loanId", loan._id))
+    .order("desc")
     .take(20);
   events.sort((a, b) => b.createdAt - a.createdAt);
   return {
@@ -116,6 +117,7 @@ export const myRequests = query({
     const loans = await ctx.db
       .query("loans")
       .withIndex("by_borrower", (q) => q.eq("borrowerId", user._id))
+      .order("desc")
       .take(100);
     const rows = [];
     for (const loan of loans) {
@@ -132,6 +134,7 @@ export const incomingRequests = query({
     const loans = await ctx.db
       .query("loans")
       .withIndex("by_lender", (q) => q.eq("lenderId", user._id))
+      .order("desc")
       .take(100);
     const rows = [];
     for (const loan of loans) {
@@ -145,7 +148,7 @@ export const listAllAdmin = query({
   args: {},
   handler: async (ctx) => {
     await requireAdmin(ctx);
-    const loans = await ctx.db.query("loans").take(200);
+    const loans = await ctx.db.query("loans").order("desc").take(200);
     const rows = [];
     for (const loan of loans) {
       rows.push(await enrichLoan(ctx, loan));
